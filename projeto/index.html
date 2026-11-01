@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadastro e Login — Teste</title>
+<style>
+  :root {
+    --bg: #14161a; --card: #1d2026; --borda: #2c313a; --texto: #eceff4;
+    --suave: #9aa3b2; --cor: #3ecf8e; --erro: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: var(--bg); color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 16px;
+  }
+  .card {
+    width: 100%; max-width: 400px; background: var(--card);
+    border: 1px solid var(--borda); border-radius: 14px; padding: 28px;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--suave); font-size: .9rem; }
+  .abas { display: flex; gap: 6px; margin-bottom: 20px; }
+  .abas button {
+    flex: 1; padding: 10px; background: transparent; color: var(--suave);
+    border: 1px solid var(--borda); border-radius: 8px; cursor: pointer; font-size: .95rem;
+  }
+  .abas button.ativa { background: var(--cor); color: #08150f; border-color: var(--cor); font-weight: 600; }
+  label { display: block; font-size: .85rem; color: var(--suave); margin: 14px 0 6px; }
+  input {
+    width: 100%; padding: 11px 12px; background: var(--bg); color: var(--texto);
+    border: 1px solid var(--borda); border-radius: 8px; font-size: 1rem;
+  }
+  input:focus { outline: 2px solid var(--cor); outline-offset: 0; }
+  .principal {
+    width: 100%; margin-top: 22px; padding: 12px; background: var(--cor); color: #08150f;
+    border: 0; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  .principal:disabled { opacity: .6; cursor: wait; }
+  .secundario {
+    width: 100%; margin-top: 12px; padding: 11px; background: transparent; color: var(--texto);
+    border: 1px solid var(--borda); border-radius: 8px; cursor: pointer; font-size: .95rem;
+  }
+  .msg { margin-top: 16px; font-size: .9rem; min-height: 1.2em; }
+  .msg.erro { color: var(--erro); }
+  .msg.ok { color: var(--cor); }
+  .dados { margin: 18px 0 4px; border-top: 1px solid var(--borda); }
+  .dados div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--borda); font-size: .92rem; }
+  .dados span:first-child { color: var(--suave); }
+  .dados span:last-child { text-align: right; word-break: break-all; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<main class="card">
+
+  <!-- TELA: entrar / cadastrar -->
+  <section id="telaAuth">
+    <h1>Bem-vindo</h1>
+    <p class="sub">Entre ou crie uma conta de teste.</p>
+
+    <div class="abas">
+      <button id="abaEntrar" class="ativa" type="button">Entrar</button>
+      <button id="abaCadastrar" type="button">Cadastrar</button>
+    </div>
+
+    <form id="formAuth" novalidate>
+      <div id="campoNome" hidden>
+        <label for="nome">Nome</label>
+        <input id="nome" type="text" autocomplete="name">
+      </div>
+
+      <label for="email">E-mail</label>
+      <input id="email" type="email" autocomplete="email" required>
+
+      <label for="senha">Senha (mínimo 6 caracteres)</label>
+      <input id="senha" type="password" autocomplete="current-password" required>
+
+      <button id="botaoEnviar" class="principal" type="submit">Entrar</button>
+    </form>
+
+    <div id="mensagem" class="msg" role="status"></div>
+  </section>
+
+  <!-- TELA: área do usuário -->
+  <section id="telaUsuario" hidden>
+    <h1 id="saudacao">Olá!</h1>
+    <p class="sub">Você está logado.</p>
+
+    <div class="dados">
+      <div><span>Nome</span><span id="dadoNome">—</span></div>
+      <div><span>E-mail</span><span id="dadoEmail">—</span></div>
+      <div><span>Cadastro em</span><span id="dadoData">—</span></div>
+    </div>
+
+    <button id="botaoSair" class="secundario" type="button">Sair</button>
+    <div id="mensagemUsuario" class="msg" role="status"></div>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Chaves PÚBLICAS (podem ficar na página). Nunca coloque aqui a chave "secret" ou "service_role".
+  const SUPABASE_URL = "https://bsndqvbmohdkmlsjnciw.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_zmeSSafoLmprd4V3q8953Q_x0_JcPwL";
+
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const $ = (id) => document.getElementById(id);
+  let modo = "entrar"; // "entrar" ou "cadastrar"
+
+  function mostrarMensagem(el, texto, tipo) {
+    el.textContent = texto || "";
+    el.className = "msg" + (tipo ? " " + tipo : "");
+  }
+
+  function trocarModo(novo) {
+    modo = novo;
+    const cadastrando = modo === "cadastrar";
+    $("abaEntrar").classList.toggle("ativa", !cadastrando);
+    $("abaCadastrar").classList.toggle("ativa", cadastrando);
+    $("campoNome").hidden = !cadastrando;
+    $("botaoEnviar").textContent = cadastrando ? "Criar conta" : "Entrar";
+    $("senha").autocomplete = cadastrando ? "new-password" : "current-password";
+    mostrarMensagem($("mensagem"), "");
+  }
+
+  function traduzirErro(erro) {
+    const m = (erro.message || "").toLowerCase();
+    if (m.includes("invalid login")) return "E-mail ou senha incorretos.";
+    if (m.includes("already registered") || m.includes("already been registered")) return "Este e-mail já está cadastrado.";
+    if (m.includes("password should be") || m.includes("at least")) return "A senha precisa ter pelo menos 6 caracteres.";
+    if (m.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
+    if (m.includes("rate limit")) return "Muitas tentativas. Aguarde um pouco e tente de novo.";
+    if (m.includes("invalid email") || m.includes("unable to validate email")) return "E-mail inválido.";
+    return "Erro: " + erro.message;
+  }
+
+  async function mostrarAreaUsuario(user) {
+    $("telaAuth").hidden = true;
+    $("telaUsuario").hidden = false;
+
+    // Tenta ler o perfil da tabela "perfis"; se não existir, usa os dados do cadastro.
+    const { data: perfil, error } = await db
+      .from("perfis")
+      .select("nome, email, criado_em")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const nome = (perfil && perfil.nome) || (user.user_metadata && user.user_metadata.nome) || user.email;
+    const email = (perfil && perfil.email) || user.email;
+    const criado = (perfil && perfil.criado_em) || user.created_at;
+
+    $("saudacao").textContent = "Olá, " + nome + "!";
+    $("dadoNome").textContent = nome;
+    $("dadoEmail").textContent = email;
+    $("dadoData").textContent = criado ? new Date(criado).toLocaleString("pt-BR") : "—";
+
+    if (error || !perfil) {
+      mostrarMensagem($("mensagemUsuario"),
+        "Perfil não encontrado na tabela. Confira se o banco.sql foi executado.", "erro");
+    } else {
+      mostrarMensagem($("mensagemUsuario"), "");
+    }
+  }
+
+  function mostrarTelaAuth() {
+    $("telaUsuario").hidden = true;
+    $("telaAuth").hidden = false;
+  }
+
+  $("abaEntrar").addEventListener("click", () => trocarModo("entrar"));
+  $("abaCadastrar").addEventListener("click", () => trocarModo("cadastrar"));
+
+  $("formAuth").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = $("mensagem");
+    const email = $("email").value.trim();
+    const senha = $("senha").value;
+    const nome = $("nome").value.trim();
+
+    if (!email || !senha) return mostrarMensagem(msg, "Preencha e-mail e senha.", "erro");
+    if (senha.length < 6) return mostrarMensagem(msg, "A senha precisa ter pelo menos 6 caracteres.", "erro");
+    if (modo === "cadastrar" && !nome) return mostrarMensagem(msg, "Informe seu nome.", "erro");
+
+    const botao = $("botaoEnviar");
+    botao.disabled = true;
+    mostrarMensagem(msg, "Aguarde...");
+
+    try {
+      if (modo === "cadastrar") {
+        const { data, error } = await db.auth.signUp({
+          email, password: senha, options: { data: { nome } }
+        });
+        if (error) throw error;
+        if (!data.session) {
+          // Confirmação de e-mail ligada: o usuário ainda não está logado.
+          mostrarMensagem(msg, "Conta criada! Confirme o e-mail enviado para poder entrar.", "ok");
+        }
+        // Com a confirmação desligada, onAuthStateChange abre a área do usuário.
+      } else {
+        const { error } = await db.auth.signInWithPassword({ email, password: senha });
+        if (error) throw error;
+      }
+    } catch (erro) {
+      mostrarMensagem(msg, traduzirErro(erro), "erro");
+    } finally {
+      botao.disabled = false;
+    }
+  });
+
+  $("botaoSair").addEventListener("click", async () => {
+    await db.auth.signOut();
+  });
+
+  // Reage a login, cadastro e logout; também restaura sessão ao recarregar a página.
+  db.auth.onAuthStateChange((evento, sessao) => {
+    if (sessao && sessao.user) {
+      // setTimeout evita travar o callback de autenticação com chamadas ao banco.
+      setTimeout(() => mostrarAreaUsuario(sessao.user), 0);
+    } else {
+      $("formAuth").reset();
+      mostrarTelaAuth();
+    }
+  });
+</script>
+</body>
+</html>
